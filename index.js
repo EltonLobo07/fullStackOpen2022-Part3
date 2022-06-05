@@ -1,11 +1,15 @@
+require("dotenv").config();
+
 const express = require("express");
 const morgan = require("morgan");
 const cors = require("cors");
+const Person = require("./models/person");
 
 const app = express();
 
 const PORT = process.env.PORT || 3001;
 
+/*
 let persons = [
     { 
       "id": 1,
@@ -28,10 +32,11 @@ let persons = [
       "number": "39-23-6423122"
     }
 ];
+*/
 
 app.use(cors());
-
 app.use(express.static("build"));
+app.use(express.json());
 
 morgan.token("req-body", function (req, res) 
 { 
@@ -44,45 +49,51 @@ morgan.token("req-body", function (req, res)
 app.use(morgan(":method :url :status :req[content-length] - :response-time ms :req-body"));
 
 //3.1
-app.get("/api/persons", function(req, res)
+app.get("/api/persons", function(req, res, next)
 {
-	res.json(persons);
+	Person
+		.find({})
+		.then(result => res.json(result))
+		.catch(err => next(err));
 });
 
 //3.2
-app.get("/info", function(req, res)
+app.get("/info", function(req, res, next)
 {
-	res.send(`Phonebook has info for ${ persons.length } people <br><br> ${new Date()}`);
+	Person
+		.find({})
+		.then(result => res.send(`Phonebook has info for ${ result.length } people <br><br> ${new Date()}`))
+		.catch(err => next(err));
 });
 
 //3.3
-app.get("/api/persons/:id", function(req, res)
+app.get("/api/persons/:id", function(req, res, next)
 {
-	const id = req.params.id;
+	Person
+		.findById(req.params.id)
+		.then(person => {
+			if (person)
+				return res.json(person);
 
-	const person = persons.find(person => person.id == id);
-
-	if (person)
-		res.json(person);
-	else
-		res.status(404).end();
+			res.status(404).end();
+		})
+		.catch(err => next(err));
 });
 
 //3.4
-app.delete("/api/persons/:id", function(req, res)
+app.delete("/api/persons/:id", function(req, res, next)
 {
-	const id = req.params.id;
-
-	persons = persons.filter(person => person.id != id);
-
-	res.status(204).end();
+	Person
+		.findByIdAndRemove(req.params.id)
+		.then(result => res.status(204).end())
+		.catch(err => next(err));
 });
 
 //3.5
-app.use(express.json());
+/*
 const mx = 100; //Application breaks once number of people in the phonebook = 100
 
-function generateId()
+function generateId(persons)
 {
 	let newId = Math.floor(Math.random() * mx) + 1;
 
@@ -91,28 +102,59 @@ function generateId()
 
 	return newId;
 }
+*/
 
-app.post("/api/persons/", function(req, res)
+app.post("/api/persons", function(req, res, next)
 {
 	const body = req.body;
 
 	if (body.name && body.number)
-	{
-		if (persons.find(person => person.name === body.name))
-		{
-			res.status(400).json({ error : "name must be unique" }); 
-			//Can't figure out which status code I should assign for duplicate name requests, so assigned status code: 400
-			return;
-		}
+	{ 
+		Person
+			.find({})
+			.then(persons => {
+				const lCName = body.name.toLowerCase();
 
-		const person = {id: generateId(), name: body.name, number: body.number};
+				if (persons.find(person => person.name.toLowerCase() === lCName))
+					return res.status(400).json({ error : "name must be unique" });
 
-		persons = persons.concat(person);
+				const person = new Person({ name: body.name, number: body.number });
 
-		res.json(person);			
+				return person.save().then(result => res.json(result));
+			})
+			.catch(err => next(err));
 	}
 	else
 		res.status(400).json({ error : "missing name or number" });
 });
+
+app.put("/api/persons/:id", function(req, res, next)
+{
+	const { name, number } = req.body;
+
+	Person
+		.findByIdAndUpdate(req.params.id, { name, number }, { new : true, runValidators: true, context : "query" })
+		.then(updatedEntry => res.json(updatedEntry))
+		.catch(err => next(err))
+});
+
+const unknownEndpoint = (req, res) => res.status(404).json({ error : "unknown endpoint" });
+
+app.use(unknownEndpoint);
+
+const errorHandlerMiddleware = (err, req, res, next) =>
+{
+	console.log("Error message:",err.message);
+
+	if (err.name === "CastError")
+		return res.status(400).json({ error : "Malformatted id" });
+
+	if (err.name === "ValidationError")
+		return res.status(400).json({ error : err.message });
+
+	return res.status(500).end();
+};
+
+app.use(errorHandlerMiddleware);
 
 app.listen(PORT, () => { console.log("Server running on PORT " + PORT) });
