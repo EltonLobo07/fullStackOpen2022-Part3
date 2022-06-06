@@ -4,7 +4,7 @@ console.log("Connecting to the database");
 
 mongoose
 	.connect(process.env.MONGODB_URI)
-	.then(result => console.log("Connected to the database"))
+	.then(() => console.log("Connected to the database"))
 	.catch(err => console.log("Error connecting to the database:",err.message));
 
 const personSchema = new mongoose.Schema({

@@ -21,7 +21,7 @@ const addPerson = process.argv.length == 5;
 
 mongoose
 	.connect(url)
-	.then(result => {
+	.then(() => {
 		if (addPerson)
 		{
 			const name = process.argv[3];

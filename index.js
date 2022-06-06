@@ -38,7 +38,7 @@ app.use(cors());
 app.use(express.static("build"));
 app.use(express.json());
 
-morgan.token("req-body", function (req, res) 
+morgan.token("req-body", function (req) 
 { 
 	if (req.method === "POST")
 		return JSON.stringify(req["body"]);
@@ -85,7 +85,7 @@ app.delete("/api/persons/:id", function(req, res, next)
 {
 	Person
 		.findByIdAndRemove(req.params.id)
-		.then(result => res.status(204).end())
+		.then(() => res.status(204).end())
 		.catch(err => next(err));
 });
 
@@ -134,18 +134,21 @@ app.put("/api/persons/:id", function(req, res, next)
 
 	Person
 		.findByIdAndUpdate(req.params.id, { name, number }, { new : true, runValidators: true, context : "query" })
-		.then(updatedEntry => res.json(updatedEntry))
-		.catch(err => next(err))
+		.then(updatedEntry => {
+			if (updatedEntry)
+				return res.json(updatedEntry);
+
+			return res.status(404).end();
+		})
+		.catch(err => next(err));
 });
 
 const unknownEndpoint = (req, res) => res.status(404).json({ error : "unknown endpoint" });
 
 app.use(unknownEndpoint);
 
-const errorHandlerMiddleware = (err, req, res, next) =>
+const errorHandlerMiddleware = (err, req, res, next) => //eslint-disable-line no-unused-vars
 {
-	console.log("Error message:",err.message);
-
 	if (err.name === "CastError")
 		return res.status(400).json({ error : "Malformatted id" });
 
@@ -157,4 +160,4 @@ const errorHandlerMiddleware = (err, req, res, next) =>
 
 app.use(errorHandlerMiddleware);
 
-app.listen(PORT, () => { console.log("Server running on PORT " + PORT) });
+app.listen(PORT, () => console.log("Server running on PORT " + PORT));
