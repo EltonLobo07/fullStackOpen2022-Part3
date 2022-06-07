@@ -1,1 +1,3 @@
-[3.10 phonebook backend step10](https://quiet-cove-50060.herokuapp.com/api/persons)
+# Heroku app
+* https://quiet-cove-50060.herokuapp.com
+* https://quiet-cove-50060.herokuapp.com/api/persons
